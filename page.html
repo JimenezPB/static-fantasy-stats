@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Liga Fantasy</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            padding: 20px;
+            color: #334155;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #1e293b;
+            color: white;
+            padding: 24px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .header h1 {
+            font-size: 1.875rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .upload-section {
+            padding: 24px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .file-upload {
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .file-upload:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .stats-container {
+            display: none;
+            padding: 24px;
+        }
+
+        .stats-tabs {
+            display: flex;
+            margin-bottom: 24px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: #64748b;
+            transition: all 0.2s ease;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #1e293b;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-card h3 {
+            color: #475569;
+            margin-bottom: 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 16px;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .error {
+            display: none;
+            color: #dc2626;
+            text-align: center;
+            padding: 16px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-size: 0.875rem;
+        }
+
+        .jornada-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .jornada-selector select {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            font-size: 0.875rem;
+            background: white;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .ranking-item:last-child {
+            border-bottom: none;
+        }
+
+        .position {
+            font-weight: 600;
+            color: #64748b;
+            width: 32px;
+            font-size: 0.875rem;
+        }
+
+        .player-name {
+            flex: 1;
+            margin-left: 12px;
+            font-weight: 500;
+        }
+
+        .score {
+            font-weight: 600;
+            color: #1e293b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Liga Fantasy</h1>
+            <p>Análisis de datos y estadísticas</p>
+        </div>
+
+        <div class="upload-section">
+            <label for="excelFile" class="file-upload">
+                <input type="file" id="excelFile" accept=".xlsx,.xls">
+                Subir Excel alternativo
+            </label>
+            <div class="loading" id="loading">
+                <p>Cargando datos de la liga...</p>
+            </div>
+            <div class="error" id="error"></div>
+            <div id="autoLoadMessage" style="display: none; color: #10b981; margin-top: 10px; font-size: 0.875rem;">
+                ✅ Datos cargados automáticamente desde liga-data.json
+            </div>
+        </div>
+
+        <div class="stats-container" id="statsContainer">
+            <div class="stats-tabs">
+                <button class="tab-button active" onclick="showTab('general')">Estadísticas Generales</button>
+                <button class="tab-button" onclick="showTab('jornadas')">Por Jornadas</button>
+                <button class="tab-button" onclick="showTab('rankings')">Rankings</button>
+                <button class="tab-button" onclick="showTab('evolucion')">Evolución</button>
+            </div>
+
+            <div id="general" class="tab-content active">
+                <div class="stats-grid" id="generalStats"></div>
+                <div class="chart-container">
+                    <canvas id="generalChart"></canvas>
+                </div>
+            </div>
+
+            <div id="jornadas" class="tab-content">
+                <div class="jornada-selector">
+                    <label for="jornadaSelect">Seleccionar Jornada: </label>
+                    <select id="jornadaSelect" onchange="showJornadaStats()">
+                    </select>
+                </div>
+                <div class="stats-grid" id="jornadaStats"></div>
+                <div class="table-container">
+                    <table id="jornadaTable">
+                        <thead>
+                            <tr>
+                                <th>Posición</th>
+                                <th>Jugador</th>
+                                <th>Puntuación</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="rankings" class="tab-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Clasificación General</h3>
+                        <div id="rankingGeneral"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Promedio por Jornada</h3>
+                        <div id="promedioJornada"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Mejor Jornada Individual</h3>
+                        <div id="mejorJornada"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Peor Jornada Individual</h3>
+                        <div id="peorJornada"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Más Consistente</h3>
+                        <div id="masConsistente"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Menos Consistente</h3>
+                        <div id="menosConsistente"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Mayor Racha Ascendente</h3>
+                        <div id="rachaAscendente"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Mayor Racha Descendente</h3>
+                        <div id="rachaDescendente"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Más Veces Último</h3>
+                        <div id="masVecesUltimo"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Más Jornadas como Líder</h3>
+                        <div id="masJornadasLider"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Jugador Más Regular</h3>
+                        <div id="masRegular"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Más Duelos Ganados</h3>
+                        <div id="masDuelosGanados"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Más Jornadas Ganadas</h3>
+                        <div id="masJornadasGanadas"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Mayor Diferencia Individual</h3>
+                        <div id="mayorDiferencia"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Más Jornadas en Top 3</h3>
+                        <div id="masJornadasTop3"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Especialista en Finales</h3>
+                        <div id="especialistaFinales"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Mejor Arranque</h3>
+                        <div id="mejorArranque"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Puntuación Favorita</h3>
+                        <div id="puntuacionFavorita"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="evolucion" class="tab-content">
+                <div class="chart-container">
+                    <canvas id="evolutionChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="cumulativeChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="averageChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = {};
+        let players = [];
+        let jornadas = [];
+
+        document.getElementById('excelFile').addEventListener('change', handleFile);
+
+        // Cargar datos automáticamente al cargar la página
+        window.addEventListener('load', async function() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const statsContainer = document.getElementById('statsContainer');
+            const autoLoadMessage = document.getElementById('autoLoadMessage');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            statsContainer.style.display = 'none';
+            autoLoadMessage.style.display = 'none';
+
+            try {
+                // Intenta cargar el archivo liga-data.json automáticamente
+                const response = await fetch('./liga-data.json');
+                if (!response.ok) {
+                    throw new Error('No se pudo cargar el archivo liga-data.json');
+                }
+                
+                const jsonData = await response.json();
+                processData(jsonData);
+                generateStatistics();
+                
+                loading.style.display = 'none';
+                statsContainer.style.display = 'block';
+                autoLoadMessage.style.display = 'block';
+                
+                console.log('✅ Datos cargados automáticamente desde liga-data.json');
+            } catch (err) {
+                loading.style.display = 'none';
+                error.innerHTML = `
+                    <strong>⚠️ No se encontraron datos automáticos</strong><br>
+                    Para cargar datos automáticamente, crea un archivo <code>liga-data.json</code> en la misma carpeta.<br>
+                    Mientras tanto, puedes subir tu archivo Excel manualmente.
+                `;
+                error.style.display = 'block';
+                console.log('No se encontró liga-data.json para carga automática');
+            }
+        });
+
+        // Función manual para cargar JSON (por si acaso)
+        async function loadJSONData() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const statsContainer = document.getElementById('statsContainer');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            statsContainer.style.display = 'none';
+
+            try {
+                const response = await fetch('./liga-data.json');
+                if (!response.ok) {
+                    throw new Error('No se pudo cargar el archivo liga-data.json');
+                }
+                
+                const jsonData = await response.json();
+                processData(jsonData);
+                generateStatistics();
+                
+                loading.style.display = 'none';
+                statsContainer.style.display = 'block';
+            } catch (err) {
+                loading.style.display = 'none';
+                error.textContent = 'Error: No se encontró el archivo liga-data.json. Asegúrate de que esté en la misma carpeta que el HTML.';
+                error.style.display = 'block';
+            }
+        }
+
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const statsContainer = document.getElementById('statsContainer');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            statsContainer.style.display = 'none';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    processData(jsonData);
+                    generateStatistics();
+                    
+                    loading.style.display = 'none';
+                    statsContainer.style.display = 'block';
+                } catch (err) {
+                    loading.style.display = 'none';
+                    error.textContent = 'Error al procesar el archivo: ' + err.message;
+                    error.style.display = 'block';
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        function processData(jsonData) {
+            data = {};
+            players = [];
+            jornadas = [];
+
+            // Obtener jugadores (todas las columnas excepto la primera que debería ser "Jornada")
+            const firstRow = jsonData[0];
+            players = Object.keys(firstRow).filter(key => key !== 'Jornada' && key !== '__EMPTY');
+
+            // Procesar datos por jornada
+            jsonData.forEach(row => {
+                const jornada = row.Jornada || row.__EMPTY || 'J' + (jornadas.length + 1);
+                if (!jornada) return;
+
+                // Verificar si la jornada tiene puntuaciones válidas
+                let hasValidScores = false;
+                const jornadaData = {};
+
+                players.forEach(player => {
+                    const score = parseFloat(row[player]);
+                    if (!isNaN(score) && score > 0) {
+                        hasValidScores = true;
+                        jornadaData[player] = Math.round(score); // Sin decimales
+                    } else {
+                        jornadaData[player] = 0;
+                    }
+                });
+
+                // Solo agregar la jornada si tiene puntuaciones válidas
+                if (hasValidScores) {
+                    data[jornada] = jornadaData;
+                    jornadas.push(jornada);
+                }
+            });
+
+            // Actualizar selector de jornadas
+            const jornadaSelect = document.getElementById('jornadaSelect');
+            jornadaSelect.innerHTML = '';
+            jornadas.forEach(jornada => {
+                const option = document.createElement('option');
+                option.value = jornada;
+                option.textContent = jornada;
+                jornadaSelect.appendChild(option);
+            });
+        }
+
+        function generateStatistics() {
+            generateGeneralStats();
+            showJornadaStats();
+            generateRankings();
+            generateEvolutionCharts();
+        }
+
+        function generateGeneralStats() {
+            const generalStats = document.getElementById('generalStats');
+            generalStats.innerHTML = '';
+
+            // Calcular estadísticas generales
+            const totals = {};
+            const averages = {};
+            let totalJornadas = jornadas.length;
+
+            players.forEach(player => {
+                totals[player] = 0;
+                jornadas.forEach(jornada => {
+                    totals[player] += data[jornada][player] || 0;
+                });
+                averages[player] = totals[player] / totalJornadas;
+            });
+
+            // Mejor promedio
+            const bestAverage = Math.max(...Object.values(averages));
+            const bestPlayer = Object.keys(averages).find(p => averages[p] === bestAverage);
+
+            // Total de puntos en la liga
+            const totalPoints = Object.values(totals).reduce((a, b) => a + b, 0);
+
+            // Crear tarjetas de estadísticas
+            const stats = [
+                { title: 'Total de Jornadas', value: totalJornadas, suffix: '' },
+                { title: 'Total de Jugadores', value: players.length, suffix: '' },
+                { title: 'Puntos Totales Liga', value: Math.round(totalPoints), suffix: 'pts' },
+                { title: 'Mejor Promedio', value: Math.round(bestAverage), suffix: 'pts', subtitle: bestPlayer }
+            ];
+
+            stats.forEach(stat => {
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <h3>${stat.title}</h3>
+                    <div class="stat-value">${stat.value} ${stat.suffix}</div>
+                    ${stat.subtitle ? `<div style="color: #666;">${stat.subtitle}</div>` : ''}
+                `;
+                generalStats.appendChild(card);
+            });
+
+            // Crear gráfico general (ordenado de mayor a menor)
+            createGeneralChart(totals);
+        }
+
+        function createGeneralChart(totals) {
+            const ctx = document.getElementById('generalChart').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (window.generalChart && typeof window.generalChart.destroy === 'function') {
+                window.generalChart.destroy();
+            }
+
+            // Ordenar jugadores por puntuación total (mayor a menor)
+            const sortedPlayers = players.sort((a, b) => totals[b] - totals[a]);
+
+            window.generalChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedPlayers,
+                    datasets: [{
+                        label: 'Puntuación Total',
+                        data: sortedPlayers.map(p => totals[p]),
+                        backgroundColor: '#3b82f6',
+                        borderColor: '#2563eb',
+                        borderWidth: 0,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Puntuación Total por Jugador',
+                            font: { size: 16, weight: '600' },
+                            color: '#1e293b'
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showJornadaStats() {
+            const selectedJornada = document.getElementById('jornadaSelect').value;
+            const jornadaStats = document.getElementById('jornadaStats');
+            const jornadaTable = document.getElementById('jornadaTable').getElementsByTagName('tbody')[0];
+
+            jornadaStats.innerHTML = '';
+            jornadaTable.innerHTML = '';
+
+            if (!selectedJornada || !data[selectedJornada]) return;
+
+            const jornadaData = data[selectedJornada];
+            const scores = Object.values(jornadaData);
+            const maxScore = Math.max(...scores);
+            const minScore = Math.min(...scores);
+            const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+            // Crear estadísticas de la jornada
+            const stats = [
+                { title: 'Puntuación Máxima', value: Math.round(maxScore), suffix: 'pts' },
+                { title: 'Puntuación Mínima', value: Math.round(minScore), suffix: 'pts' },
+                { title: 'Promedio Jornada', value: Math.round(avgScore), suffix: 'pts' },
+                { title: 'Diferencia Max-Min', value: Math.round(maxScore - minScore), suffix: 'pts' }
+            ];
+
+            stats.forEach(stat => {
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <h3>${stat.title}</h3>
+                    <div class="stat-value">${stat.value} ${stat.suffix}</div>
+                `;
+                jornadaStats.appendChild(card);
+            });
+
+            // Crear tabla ordenada
+            const sortedPlayers = players.sort((a, b) => jornadaData[b] - jornadaData[a]);
+            sortedPlayers.forEach((player, index) => {
+                const row = jornadaTable.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${player}</td>
+                    <td>${Math.round(jornadaData[player])}</td>
+                `;
+            });
+        }
+
+        function generateRankings() {
+            // Calcular totales y promedios
+            const totals = {};
+            const averages = {};
+            players.forEach(player => {
+                totals[player] = 0;
+                jornadas.forEach(jornada => {
+                    totals[player] += data[jornada][player] || 0;
+                });
+                averages[player] = totals[player] / jornadas.length;
+            });
+
+            const sortedByTotal = players.sort((a, b) => totals[b] - totals[a]);
+            const rankingGeneral = document.getElementById('rankingGeneral');
+            rankingGeneral.innerHTML = '';
+            
+            // Mostrar clasificación completa
+            sortedByTotal.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'ranking-item';
+                item.innerHTML = `
+                    <span class="position">${index + 1}.</span>
+                    <span class="player-name">${player}</span>
+                    <span class="score">${Math.round(totals[player])}</span>
+                `;
+                rankingGeneral.appendChild(item);
+            });
+
+            // Promedio por jornada (ranking)
+            const sortedByAverage = players.sort((a, b) => averages[b] - averages[a]);
+            const promedioJornada = document.getElementById('promedioJornada');
+            promedioJornada.innerHTML = '';
+            
+            sortedByAverage.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'ranking-item';
+                item.innerHTML = `
+                    <span class="position">${index + 1}.</span>
+                    <span class="player-name">${player}</span>
+                    <span class="score">${Math.round(averages[player])}</span>
+                `;
+                promedioJornada.appendChild(item);
+            });
+
+            // Mejor jornada individual
+            let bestSingleScore = 0;
+            let bestSinglePlayer = '';
+            let bestSingleJornada = '';
+
+            jornadas.forEach(jornada => {
+                players.forEach(player => {
+                    const score = data[jornada][player];
+                    if (score > bestSingleScore) {
+                        bestSingleScore = score;
+                        bestSinglePlayer = player;
+                        bestSingleJornada = jornada;
+                    }
+                });
+            });
+
+            document.getElementById('mejorJornada').innerHTML = `
+                <div class="stat-value">${Math.round(bestSingleScore)}</div>
+                <div>${bestSinglePlayer} (${bestSingleJornada})</div>
+            `;
+
+            // Peor jornada individual
+            let worstSingleScore = Infinity;
+            let worstSinglePlayer = '';
+            let worstSingleJornada = '';
+
+            jornadas.forEach(jornada => {
+                players.forEach(player => {
+                    const score = data[jornada][player];
+                    if (score < worstSingleScore) {
+                        worstSingleScore = score;
+                        worstSinglePlayer = player;
+                        worstSingleJornada = jornada;
+                    }
+                });
+            });
+
+            document.getElementById('peorJornada').innerHTML = `
+                <div class="stat-value">${Math.round(worstSingleScore)}</div>
+                <div>${worstSinglePlayer} (${worstSingleJornada})</div>
+            `;
+
+            // Más consistente (menor desviación estándar)
+            const consistencies = {};
+            players.forEach(player => {
+                const scores = jornadas.map(jornada => data[jornada][player]);
+                const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+                const variance = scores.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / scores.length;
+                consistencies[player] = Math.sqrt(variance);
+            });
+
+            const mostConsistent = Object.keys(consistencies).reduce((a, b) => 
+                consistencies[a] < consistencies[b] ? a : b
+            );
+
+            document.getElementById('masConsistente').innerHTML = `
+                <div class="stat-value">${mostConsistent}</div>
+                <div>Desv. Est: ${Math.round(consistencies[mostConsistent])}</div>
+            `;
+
+            // Menos consistente (mayor desviación estándar)
+            const leastConsistent = Object.keys(consistencies).reduce((a, b) => 
+                consistencies[a] > consistencies[b] ? a : b
+            );
+
+            document.getElementById('menosConsistente').innerHTML = `
+                <div class="stat-value">${leastConsistent}</div>
+                <div>Desv. Est: ${Math.round(consistencies[leastConsistent])}</div>
+            `;
+
+            // Mayor racha ascendente
+            const rachasAscendentes = {};
+            players.forEach(player => {
+                let maxRacha = 0;
+                let rachaActual = 0;
+                for (let i = 1; i < jornadas.length; i++) {
+                    if (data[jornadas[i]][player] > data[jornadas[i-1]][player]) {
+                        rachaActual++;
+                        maxRacha = Math.max(maxRacha, rachaActual);
+                    } else {
+                        rachaActual = 0;
+                    }
+                }
+                rachasAscendentes[player] = maxRacha;
+            });
+
+            const mejorRachaAsc = Object.keys(rachasAscendentes).reduce((a, b) => 
+                rachasAscendentes[a] > rachasAscendentes[b] ? a : b
+            );
+
+            document.getElementById('rachaAscendente').innerHTML = `
+                <div class="stat-value">${mejorRachaAsc}</div>
+                <div>${rachasAscendentes[mejorRachaAsc]} jornadas consecutivas</div>
+            `;
+
+            // Mayor racha descendente
+            const rachasDescendentes = {};
+            players.forEach(player => {
+                let maxRacha = 0;
+                let rachaActual = 0;
+                for (let i = 1; i < jornadas.length; i++) {
+                    if (data[jornadas[i]][player] < data[jornadas[i-1]][player]) {
+                        rachaActual++;
+                        maxRacha = Math.max(maxRacha, rachaActual);
+                    } else {
+                        rachaActual = 0;
+                    }
+                }
+                rachasDescendentes[player] = maxRacha;
+            });
+
+            const mejorRachaDesc = Object.keys(rachasDescendentes).reduce((a, b) => 
+                rachasDescendentes[a] > rachasDescendentes[b] ? a : b
+            );
+
+            document.getElementById('rachaDescendente').innerHTML = `
+                <div class="stat-value">${mejorRachaDesc}</div>
+                <div>${rachasDescendentes[mejorRachaDesc]} jornadas consecutivas</div>
+            `;
+
+            // Más veces último
+            const ultimosData = {};
+            players.forEach(player => {
+                ultimosData[player] = 0;
+            });
+
+            jornadas.forEach(jornada => {
+                const jornadaSorted = [...players].sort((a, b) => data[jornada][a] - data[jornada][b]);
+                if (jornadaSorted.length > 0) {
+                    ultimosData[jornadaSorted[0]]++;
+                }
+            });
+
+            const maxUltimo = Math.max(...Object.values(ultimosData));
+            const masUltimo = Object.keys(ultimosData).filter(player => ultimosData[player] === maxUltimo);
+
+            document.getElementById('masVecesUltimo').innerHTML = `
+                <div class="stat-value">${masUltimo.length > 1 ? masUltimo.join(' • ') : masUltimo[0]}</div>
+                <div>${maxUltimo} veces último</div>
+            `;
+
+            // Más jornadas como líder
+            const liderazgos = {};
+            players.forEach(player => {
+                liderazgos[player] = 0;
+            });
+
+            jornadas.forEach((jornada, index) => {
+                const acumulados = {};
+                players.forEach(player => {
+                    acumulados[player] = 0;
+                    for (let j = 0; j <= index; j++) {
+                        acumulados[player] += data[jornadas[j]][player] || 0;
+                    }
+                });
+                
+                const maxPuntos = Math.max(...Object.values(acumulados));
+                const lideres = Object.keys(acumulados).filter(player => acumulados[player] === maxPuntos);
+                
+                lideres.forEach(lider => {
+                    liderazgos[lider]++;
+                });
+            });
+
+            const maxLiderazgo = Math.max(...Object.values(liderazgos));
+            const masLider = Object.keys(liderazgos).filter(player => liderazgos[player] === maxLiderazgo);
+
+            document.getElementById('masJornadasLider').innerHTML = `
+                <div class="stat-value">${masLider.length > 1 ? masLider.join(' • ') : masLider[0]}</div>
+                <div>${maxLiderazgo} jornadas liderando</div>
+            `;
+
+            // Jugador más regular
+            const variaciones = {};
+            players.forEach(player => {
+                const posiciones = [];
+                jornadas.forEach(jornada => {
+                    const jornadaSorted = [...players].sort((a, b) => data[jornada][b] - data[jornada][a]);
+                    posiciones.push(jornadaSorted.indexOf(player) + 1);
+                });
+                const promedio = posiciones.reduce((a, b) => a + b, 0) / posiciones.length;
+                const varianza = posiciones.reduce((a, b) => a + Math.pow(b - promedio, 2), 0) / posiciones.length;
+                variaciones[player] = Math.sqrt(varianza);
+            });
+
+            const minVariacion = Math.min(...Object.values(variaciones));
+            const masRegular = Object.keys(variaciones).filter(player => 
+                Math.abs(variaciones[player] - minVariacion) < 0.1
+            );
+
+            document.getElementById('masRegular').innerHTML = `
+                <div class="stat-value">${masRegular.length > 1 ? masRegular.join(' • ') : masRegular[0]}</div>
+                <div>Variación: ${minVariacion.toFixed(1)} posiciones</div>
+            `;
+
+            // Más duelos ganados
+            const duelos = {};
+            players.forEach(player => {
+                duelos[player] = 0;
+                jornadas.forEach(jornada => {
+                    players.forEach(rival => {
+                        if (rival !== player && data[jornada][player] > data[jornada][rival]) {
+                            duelos[player]++;
+                        }
+                    });
+                });
+            });
+
+            const maxDuelos = Math.max(...Object.values(duelos));
+            const masDuelos = Object.keys(duelos).filter(player => duelos[player] === maxDuelos);
+
+            document.getElementById('masDuelosGanados').innerHTML = `
+                <div class="stat-value">${masDuelos.length > 1 ? masDuelos.join(' • ') : masDuelos[0]}</div>
+                <div>${maxDuelos} duelos ganados</div>
+            `;
+
+            // Más jornadas ganadas
+            const ganadas = {};
+            players.forEach(player => {
+                ganadas[player] = 0;
+            });
+
+            jornadas.forEach(jornada => {
+                const jornadaSorted = [...players].sort((a, b) => data[jornada][b] - data[jornada][a]);
+                if (jornadaSorted.length > 0) {
+                    ganadas[jornadaSorted[0]]++;
+                }
+            });
+
+            const maxGanadas = Math.max(...Object.values(ganadas));
+            const masGanadas = Object.keys(ganadas).filter(player => ganadas[player] === maxGanadas);
+
+            document.getElementById('masJornadasGanadas').innerHTML = `
+                <div class="stat-value">${masGanadas.length > 1 ? masGanadas.join(' • ') : masGanadas[0]}</div>
+                <div>${maxGanadas} jornadas ganadas</div>
+            `;
+
+            // Mayor diferencia individual
+            let mayorDiferencia = 0;
+            jornadas.forEach(jornada => {
+                const jornadaSorted = [...players].sort((a, b) => data[jornada][b] - data[jornada][a]);
+                if (jornadaSorted.length > 1) {
+                    const diferencia = data[jornada][jornadaSorted[0]] - data[jornada][jornadaSorted[1]];
+                    mayorDiferencia = Math.max(mayorDiferencia, diferencia);
+                }
+            });
+
+            const jugadoresDiferencia = [];
+            jornadas.forEach(jornada => {
+                const jornadaSorted = [...players].sort((a, b) => data[jornada][b] - data[jornada][a]);
+                if (jornadaSorted.length > 1) {
+                    const diferencia = data[jornada][jornadaSorted[0]] - data[jornada][jornadaSorted[1]];
+                    if (diferencia === mayorDiferencia && !jugadoresDiferencia.includes(jornadaSorted[0])) {
+                        jugadoresDiferencia.push(jornadaSorted[0]);
+                    }
+                }
+            });
+
+            document.getElementById('mayorDiferencia').innerHTML = `
+                <div class="stat-value">${jugadoresDiferencia.length > 1 ? jugadoresDiferencia.join(' • ') : jugadoresDiferencia[0]}</div>
+                <div>+${Math.round(mayorDiferencia)} pts vs 2º</div>
+            `;
+
+            // Más jornadas en top 3
+            const top3 = {};
+            players.forEach(player => {
+                top3[player] = 0;
+            });
+
+            jornadas.forEach(jornada => {
+                const jornadaSorted = [...players].sort((a, b) => data[jornada][b] - data[jornada][a]);
+                for (let i = 0; i < 3 && i < jornadaSorted.length; i++) {
+                    top3[jornadaSorted[i]]++;
+                }
+            });
+
+            const maxTop3 = Math.max(...Object.values(top3));
+            const masTop3 = Object.keys(top3).filter(player => top3[player] === maxTop3);
+
+            document.getElementById('masJornadasTop3').innerHTML = `
+                <div class="stat-value">${masTop3.length > 1 ? masTop3.join(' • ') : masTop3[0]}</div>
+                <div>${maxTop3} veces en top 3</div>
+            `;
+
+            // Especialista en finales
+            const ultimasJornadas = jornadas.slice(-3);
+            const promediosFinales = {};
+            players.forEach(player => {
+                const puntosFinales = ultimasJornadas.reduce((sum, jornada) => sum + (data[jornada][player] || 0), 0);
+                promediosFinales[player] = puntosFinales / ultimasJornadas.length;
+            });
+
+            const maxFinales = Math.max(...Object.values(promediosFinales));
+            const especialistaFinales = Object.keys(promediosFinales).filter(player => 
+                Math.abs(promediosFinales[player] - maxFinales) < 0.5
+            );
+
+            document.getElementById('especialistaFinales').innerHTML = `
+                <div class="stat-value">${especialistaFinales.length > 1 ? especialistaFinales.join(' • ') : especialistaFinales[0]}</div>
+                <div>${Math.round(maxFinales)} pts promedio últimas 3J</div>
+            `;
+
+            // Mejor arranque
+            const primerasJornadas = jornadas.slice(0, 3);
+            const promediosArranque = {};
+            players.forEach(player => {
+                const puntosArranque = primerasJornadas.reduce((sum, jornada) => sum + (data[jornada][player] || 0), 0);
+                promediosArranque[player] = puntosArranque / primerasJornadas.length;
+            });
+
+            const maxArranque = Math.max(...Object.values(promediosArranque));
+            const mejorArranque = Object.keys(promediosArranque).filter(player => 
+                Math.abs(promediosArranque[player] - maxArranque) < 0.5
+            );
+
+            document.getElementById('mejorArranque').innerHTML = `
+                <div class="stat-value">${mejorArranque.length > 1 ? mejorArranque.join(' • ') : mejorArranque[0]}</div>
+                <div>${Math.round(maxArranque)} pts promedio primeras 3J</div>
+            `;
+
+            // Puntuación favorita
+            const frecuencias = {};
+            players.forEach(player => {
+                frecuencias[player] = {};
+                jornadas.forEach(jornada => {
+                    const puntos = Math.round(data[jornada][player]);
+                    frecuencias[player][puntos] = (frecuencias[player][puntos] || 0) + 1;
+                });
+            });
+
+            let maxFrecuencia = 0;
+            let jugadoresFavoritos = [];
+            let puntuacionFav = 0;
+
+            players.forEach(player => {
+                Object.entries(frecuencias[player]).forEach(([puntos, frecuencia]) => {
+                    if (frecuencia > maxFrecuencia) {
+                        maxFrecuencia = frecuencia;
+                        jugadoresFavoritos = [player];
+                        puntuacionFav = puntos;
+                    } else if (frecuencia === maxFrecuencia && !jugadoresFavoritos.includes(player)) {
+                        jugadoresFavoritos.push(player);
+                    }
+                });
+            });
+
+            document.getElementById('puntuacionFavorita').innerHTML = `
+                <div class="stat-value">${jugadoresFavoritos.length > 1 ? jugadoresFavoritos.join(' • ') : jugadoresFavoritos[0]}</div>
+                <div>${puntuacionFav} pts (${maxFrecuencia} veces)</div>
+            `;
+        }
+
+        function generateEvolutionCharts() {
+            // Gráfico de evolución de puntuaciones
+            const ctx1 = document.getElementById('evolutionChart').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (window.evolutionChart && typeof window.evolutionChart.destroy === 'function') {
+                window.evolutionChart.destroy();
+            }
+
+            const colors = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+            ];
+
+            const datasets = players.map((player, index) => ({
+                label: player,
+                data: jornadas.map(jornada => data[jornada][player]),
+                borderColor: colors[index % colors.length],
+                backgroundColor: colors[index % colors.length] + '20',
+                fill: false,
+                tension: 0
+            }));
+
+            window.evolutionChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: jornadas,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Evolución de Puntuaciones por Jornada',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de puntuaciones acumuladas
+            const ctx1b = document.getElementById('cumulativeChart').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (window.cumulativeChart && typeof window.cumulativeChart.destroy === 'function') {
+                window.cumulativeChart.destroy();
+            }
+
+            const cumulativeDatasets = players.map((player, index) => {
+                let cumulative = 0;
+                const cumulativeData = jornadas.map(jornada => {
+                    cumulative += data[jornada][player];
+                    return cumulative;
+                });
+                
+                return {
+                    label: player,
+                    data: cumulativeData,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    fill: false,
+                    tension: 0
+                };
+            });
+
+            window.cumulativeChart = new Chart(ctx1b, {
+                type: 'line',
+                data: {
+                    labels: jornadas,
+                    datasets: cumulativeDatasets
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Evolución de Puntuaciones Acumuladas',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de promedios por jornada
+            const ctx2 = document.getElementById('averageChart').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (window.averageChart && typeof window.averageChart.destroy === 'function') {
+                window.averageChart.destroy();
+            }
+
+            const averagesByJornada = jornadas.map(jornada => {
+                const scores = players.map(player => data[jornada][player]);
+                return scores.reduce((a, b) => a + b, 0) / scores.length;
+            });
+
+            window.averageChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: jornadas,
+                    datasets: [{
+                        label: 'Promedio por Jornada',
+                        data: averagesByJornada,
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Promedio de Puntuaciones por Jornada',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showTab(tabName) {
+            // Ocultar todas las pestañas
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            // Desactivar todos los botones
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(button => button.classList.remove('active'));
+
+            // Mostrar la pestaña seleccionada
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
